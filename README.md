@@ -7,6 +7,7 @@
 Your agent sessions already log every tool call, file write, and token spent.
 `blackbox` turns that into something you can actually ask questions of.
 
+[![ci](https://github.com/edenbuilds/blackbox/actions/workflows/ci.yml/badge.svg)](https://github.com/edenbuilds/blackbox/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@edenbuilds/blackbox?color=black&label=npm)](https://www.npmjs.com/package/@edenbuilds/blackbox)
 [![license](https://img.shields.io/badge/license-MIT-black)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A518-black)](https://nodejs.org)
