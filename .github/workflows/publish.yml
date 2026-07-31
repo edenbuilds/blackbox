@@ -1,0 +1,64 @@
+name: publish
+
+# Trusted publishing (OIDC). No NPM_TOKEN, no one-time code, no long-lived secret
+# anywhere in this repo or its settings — npm verifies the workflow's identity
+# directly with GitHub and issues a short-lived credential for that publish alone.
+#
+# One-time setup, and it can only be done AFTER the package exists on the registry:
+# npm refuses to add a trusted publisher for a package it has never seen, and OIDC
+# cannot perform a first publish. So v0.1.0 goes out by hand; everything after that
+# comes through here. See https://github.com/npm/cli/issues/8544
+#
+#   npmjs.com → @edenbuilds/blackbox → Settings → Trusted Publisher → GitHub Actions
+#     Organization or user:  edenbuilds
+#     Repository:            blackbox
+#     Workflow filename:     publish.yml
+#     Environment:           (leave empty)
+#
+# Then delete every publish token you have. That is the point of this file.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC — without it npm falls back to looking for a token
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs npm >= 11.5.1; the runner's bundled npm trails it.
+      - run: npm install -g npm@latest
+
+      # A tag that disagrees with package.json publishes a version nobody asked for,
+      # and the mistake is only visible on the registry afterwards.
+      - name: Tag matches package.json
+        if: github.event_name == 'release'
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          [ "$TAG" = "$PKG" ] || { echo "::error::tag $TAG != package.json $PKG"; exit 1; }
+          echo "ok  $TAG"
+
+      # Never publish something that fails its own checks.
+      - run: node bin/blackbox.mjs selftest
+
+      - run: npm publish
+        # Provenance attestation is generated automatically for trusted publishes.
+
+      # npm accepting the upload is not evidence the artifact installs and runs.
+      - name: Verify the published artifact
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          cd "$(mktemp -d)"
+          npx -y "@edenbuilds/blackbox@$VER" selftest

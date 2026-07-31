@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # package.json claims engines.node >= 18. This matrix is what makes that a
+        # fact rather than a hope — it reduces real transcripts on the oldest
+        # supported runtime, not just the one on the author's laptop.
+        node: ["18", "20", "22", "24"]
+        os: [ubuntu-latest]
+        include:
+          # The tool reads ~/.claude/projects and ~/.codex, so path handling is worth
+          # one macOS cell — that is where its users actually run it.
+          - node: "24"
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node bin/blackbox.mjs selftest
+      - run: node bin/blackbox.mjs help
+
+      # An empty machine has no transcripts. Recording nothing must exit 0 and say so,
+      # not crash — this is the first thing a new user hits.
+      - name: Cold start on a machine with no transcripts
+        run: |
+          export BLACKBOX_STORE="$(mktemp -d)/store"
+          node bin/blackbox.mjs record
+          node bin/blackbox.mjs log || true
+          node bin/blackbox.mjs path
