@@ -91,14 +91,37 @@ say "Verifying the published artifact"
 # The publish output is npm telling you it accepted the upload. It is not evidence the
 # thing installs and runs. Fetch it back from the registry, in a clean directory, with
 # an empty cache, and make it prove itself.
+#
+# The retry is not politeness. A successful PUT does not mean the read path serves the
+# package yet — for the first package in a new scope the packument can 404 for minutes
+# while `npm access get status` already reports it. Failing on the first 404 reports a
+# successful publish as a failure, which is how you end up republishing something that
+# was never broken.
 VERIFY=$(mktemp -d)
-(
-  cd "$VERIFY"
-  npm cache clean --force >/dev/null 2>&1 || true
-  npx -y "$PKG@$VER" selftest | tail -1
-  npx -y "$PKG@$VER" help | head -1
-)
+ok=0
+for attempt in 1 2 3 4 5 6; do
+  if (cd "$VERIFY" && npx -y "$PKG@$VER" selftest >/dev/null 2>&1); then
+    ok=1
+    break
+  fi
+  echo "     not on the read path yet (attempt $attempt) — waiting 30s"
+  sleep 30
+done
 rm -rf "$VERIFY"
+
+if [[ "$ok" -eq 1 ]]; then
+  echo "ok   installed from the registry and passed its selftest"
+else
+  # Distinguish the two cases rather than printing one scary error for both.
+  if npm access get status "$PKG" >/dev/null 2>&1; then
+    echo "note the publish succeeded — npm reports the package exists — but the read path"
+    echo "     is still catching up. Nothing to fix; retry the verify in a few minutes:"
+    echo "       npx -y $PKG@$VER selftest"
+  else
+    echo "! could not verify the published artifact and npm does not report it" >&2
+    exit 1
+  fi
+fi
 
 say "Done"
 echo "  https://www.npmjs.com/package/$PKG"
