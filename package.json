@@ -1,0 +1,44 @@
+{
+  "name": "@edenbuilds/blackbox",
+  "version": "0.1.0",
+  "description": "Flight recorder for coding agents — reduces Claude Code and Codex transcripts into one append-only event log you can query.",
+  "type": "module",
+  "bin": {
+    "blackbox": "bin/blackbox.mjs"
+  },
+  "files": [
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node bin/blackbox.mjs selftest"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "agent",
+    "observability",
+    "audit-log",
+    "transcript",
+    "tokens",
+    "cost",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edenbuilds/blackbox.git"
+  },
+  "homepage": "https://github.com/edenbuilds/blackbox#readme",
+  "bugs": {
+    "url": "https://github.com/edenbuilds/blackbox/issues"
+  },
+  "license": "MIT",
+  "author": "Omkar Sonawane (https://github.com/edenbuilds)",
+  "publishConfig": {
+    "access": "public"
+  }
+}
