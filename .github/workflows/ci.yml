@@ -29,6 +29,11 @@ jobs:
       - run: node bin/blackbox.mjs selftest
       - run: node bin/blackbox.mjs help
 
+      # The evaluator end-to-end on the stub executor: guards, arm installs, verify,
+      # leak scan, scoring. No model call, so the plumbing behind every published
+      # number is checked on every push for free.
+      - run: node test/eval-e2e.mjs
+
       # An empty machine has no transcripts. Recording nothing must exit 0 and say so,
       # not crash — this is the first thing a new user hits.
       - name: Cold start on a machine with no transcripts

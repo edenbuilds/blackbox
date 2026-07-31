@@ -120,6 +120,74 @@ Ten human turns produced 159 write-batches across 80 files over fourteen hours �
 one of those files was `.env`, which is exactly the kind of thing you want to find in a
 log rather than in an incident.
 
+## Does your agent config actually help?
+
+Everyone is writing CLAUDE.md files, installing skill packs, and adding MCP servers.
+Almost nobody has measured whether any of it helps. `blackbox eval` runs the same task
+with your config and without it, in isolated worktrees, and compares.
+
+```bash
+blackbox eval --example > blackbox.eval.json   # edit, then
+blackbox eval
+```
+
+```
+arm         scored  passed  rate    void  blocked  cost      wall
+bare             9       7   0.78      0        0    $12.40   842s
+configured       8       8   1.00      1        0    $21.06  1503s
+
+1 cell(s) voided by the leak detector and excluded from the rates above.
+A contaminated cell measured the answer key, not the configuration.
+```
+
+An **arm** is just a set of files installed into the worktree, so it works with
+whatever you actually ship to your team:
+
+```json
+{
+  "arms": {
+    "bare":       { "install": [] },
+    "configured": { "install": ["CLAUDE.md", ".claude"] }
+  },
+  "tasks": [{
+    "id": "add-retry",
+    "seed": "tasks/add-retry/seed",
+    "promptFile": "tasks/add-retry/task.md",
+    "verify": "python3 -m pytest -q verify_tests.py",
+    "answerNames": ["verify_tests.py"]
+  }]
+}
+```
+
+### Why you can trust the number
+
+Benchmarking agents is easy to do wrong, and the failure is silent — a contaminated
+run looks exactly like a good one. These guards run **before any tokens are billed**:
+
+- **Ancestor check.** Claude Code and Codex both walk parent directories for
+  `CLAUDE.md`/`AGENTS.md`. If any exists above the run directory, your "bare" arm
+  isn't bare — so the suite refuses to start rather than publish the number.
+- **Stale-answer check.** If a copy of the task's answer is reachable in any scratch
+  directory, the cell is blocked. A session that finds one passes without using the
+  thing under test. This searches by filename *and* by content, because a previous
+  session's scratchpad holds what it retrieved in a file no filename rule matches.
+- **One worktree at a time.** Siblings are readable. Anonymous directory names don't
+  help — `find ..` enumerates them regardless. The only property that holds is that
+  there is nothing to find. The agent CLI's own scratchpad, which outlives the
+  worktree, is purged too.
+- **Leak detection after the fact.** Every session log is scanned for reads outside
+  its worktree. A contaminated cell is **void** — not a pass, not a fail — and is
+  excluded from the rate rather than averaged into it.
+- **Blocked ≠ failed.** A cell that never ran is reported separately from one that
+  ran and failed. Collapsing those makes a suite uninterpretable.
+
+Reading is distinguished from listing: `ls` and `find` reveal file *names* and void
+nothing; `cat`, `rg`, and `sqlite3` reveal *content* and void the cell.
+
+These aren't hypotheticals. Every one of them exists because a real suite published a
+number it shouldn't have — including one where five of six control runs read the
+answer key out of their own working directory.
+
 ## Install
 
 ```bash

@@ -1,13 +1,14 @@
 {
   "name": "@edenbuilds/blackbox",
-  "version": "0.1.0",
-  "description": "Flight recorder for coding agents — reduces Claude Code and Codex transcripts into one append-only event log you can query.",
+  "version": "0.2.0",
+  "description": "Flight recorder and A/B evaluator for coding agents — reduce Claude Code and Codex transcripts into a queryable event log, and measure whether your agent config actually helps.",
   "type": "module",
   "bin": {
     "blackbox": "bin/blackbox.mjs"
   },
   "files": [
     "bin/",
+    "lib/",
     "README.md",
     "LICENSE"
   ],
@@ -15,7 +16,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node bin/blackbox.mjs selftest"
+    "test": "node bin/blackbox.mjs selftest && node test/eval-e2e.mjs"
   },
   "keywords": [
     "claude-code",
@@ -26,7 +27,10 @@
     "transcript",
     "tokens",
     "cost",
-    "cli"
+    "cli",
+    "benchmark",
+    "eval",
+    "ab-testing"
   ],
   "repository": {
     "type": "git",
