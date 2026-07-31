@@ -42,30 +42,47 @@ if npm view "$PKG@$VER" version >/dev/null 2>&1; then
 fi
 echo "ok   $PKG@$VER is not yet on the registry"
 
-WHO=$(npm whoami 2>/dev/null || true)
-[[ -n "$WHO" ]] || { echo "! not logged in — run: npm login" >&2; exit 1; }
-echo "ok   logged in as $WHO"
-
 say "Authenticating the publish"
 
+# Auth is resolved BEFORE the identity check. With a token, `npm whoami` reads the
+# default config, finds no credentials there, and reports "not logged in" even though
+# the publish itself would have succeeded — so establish the config first, then ask
+# npm who it thinks we are through that same config.
 NPM_ARGS=()
+
+# Prompt rather than take the token from an argument or an inline `NPM_TOKEN=... cmd`
+# assignment: both of those are written to shell history in plaintext, and a leaked
+# publish token is a supply-chain problem rather than an inconvenience. The env var is
+# still honoured so CI can inject it from a secret store, where there is no history.
+if [[ -z "${NPM_TOKEN:-}" && -t 0 ]]; then
+  printf 'npm access token (npm_...), or press ENTER to use a 2FA code instead: '
+  read -rs NPM_TOKEN
+  printf '\n'
+fi
+
 if [[ -n "${NPM_TOKEN:-}" ]]; then
-  # Token path. Written to a private userconfig rather than ~/.npmrc so a CI runner
-  # (or this laptop) never ends up with a long-lived credential in a dotfile.
+  [[ "$NPM_TOKEN" == npm_* ]] || { echo "! that does not look like an npm token (expected npm_...)" >&2; exit 1; }
+  # A private userconfig in a temp dir, deleted on exit, so a long-lived credential
+  # never lands in ~/.npmrc or a CI runner's home. umask is scoped to the subshell so
+  # it does not silently change permissions for everything created later.
   TMPHOME=$(mktemp -d)
-  umask 077
-  printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$TMPHOME/npmrc"
+  (umask 077; printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$TMPHOME/npmrc")
   NPM_ARGS+=(--userconfig "$TMPHOME/npmrc")
-  echo "using NPM_TOKEN (granular access token)"
+  echo "using access token"
 else
-  # Interactive path. -s so the code is not echoed to the terminal or scrollback.
-  printf 'npm one-time code (6 digits from your authenticator): '
+  # npm is restricting bypass-2FA tokens for direct publishing, so on a laptop this is
+  # the path that keeps working: https://gh.io/npm-gat-bypass2fa-deprecation
+  printf 'npm one-time code (6 digits): '
   read -rs OTP
   printf '\n'
   [[ "$OTP" =~ ^[0-9]{6}$ ]] || { echo "! that is not a 6-digit code — recovery codes and setup keys will not work here" >&2; exit 1; }
   export NPM_CONFIG_OTP="$OTP"   # env, not argv: argv is world-readable via ps
   echo "using one-time code"
 fi
+
+WHO=$(npm whoami "${NPM_ARGS[@]+"${NPM_ARGS[@]}"}" 2>/dev/null || true)
+[[ -n "$WHO" ]] || { echo "! credentials rejected — token revoked or expired, or run: npm login" >&2; exit 1; }
+echo "ok   authenticated as $WHO"
 
 say "Publishing $PKG@$VER"
 npm publish --access public "${NPM_ARGS[@]+"${NPM_ARGS[@]}"}"
