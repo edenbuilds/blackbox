@@ -8,6 +8,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadSpec, runSuite, score } from "../lib/eval.mjs";
+import { SCRATCH } from "../lib/isolate.mjs";
 
 let fails = 0;
 let total = 0;
@@ -84,7 +85,7 @@ check("passing cell has no verify output", results.find((r) => r.passed).verify_
 
 // The guards must refuse rather than run when the answer is reachable.
 {
-  const stale = mkdtempSync(join("/private/tmp", "bbstale-"));
+  const stale = mkdtempSync(join(SCRATCH, "bbstale-"));
   writeFileSync(join(stale, "answer-key.txt"), "ok\n");
   const blocked = runSuite({ spec: loaded, filter: { arm: "bare" }, onLog: () => {} });
   check("a reachable answer blocks the cell instead of running it",
