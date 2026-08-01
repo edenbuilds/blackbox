@@ -1,0 +1,30 @@
+{
+  "runsDir": "/tmp/blackbox-eval",
+  "executor": "claude",
+  "model": "claude-sonnet-5",
+  "reps": 1,
+  "arms": {
+    "bare": {
+      "install": []
+    },
+    "with-conventions": {
+      "install": [
+        "CLAUDE.md"
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "naming",
+      "seed": "tasks/naming/seed",
+      "promptFile": "tasks/naming/task.md",
+      "verify": "cp \"$BLACKBOX_SPEC_DIR/tasks/naming/verify_tests.py\" . && python3 verify_tests.py",
+      "answerNames": [
+        "verify_tests.py"
+      ],
+      "contentKeys": [
+        "for_label"
+      ]
+    }
+  ]
+}
