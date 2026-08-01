@@ -7,6 +7,7 @@
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { loadSpec, runSuite, score } from "../lib/eval.mjs";
 import { SCRATCH } from "../lib/isolate.mjs";
 
@@ -122,22 +123,40 @@ check("passing cell has no verify output", results.find((r) => r.passed).verify_
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
   delete process.env.ANTHROPIC_AUTH_TOKEN;
-  let refused = false;
+  // CI runners have no `claude` on PATH, so preflight legitimately refuses on that
+  // first and never reaches the credential check. Asserting the credential message
+  // unconditionally made this test pass locally and fail on all four Linux cells —
+  // the test was environment-dependent, not the code.
+  const hasCli = (() => {
+    try {
+      return spawnSync("command", ["-v", "claude"], { shell: true }).status === 0;
+    } catch {
+      return false;
+    }
+  })();
+
+  let msg = "";
   try {
     preflight({ executor: "claude" });
   } catch (e) {
-    refused = /headless credential/.test(e.message);
+    msg = e.message;
   }
-  check("preflight refuses a claude run with no headless credential", refused, true);
+  check("preflight refuses when nothing is configured", msg.length > 0, true);
+  check(
+    hasCli ? "refuses for a missing credential" : "refuses for a missing CLI",
+    hasCli ? /headless credential/.test(msg) : /not on PATH/.test(msg),
+    true,
+  );
 
   process.env.ANTHROPIC_API_KEY = "sk-test-not-a-real-key";
-  let passed = true;
+  let msg2 = "";
   try {
     preflight({ executor: "claude" });
   } catch (e) {
-    passed = !/headless credential/.test(e.message); // CLI-missing is a different refusal
+    msg2 = e.message;
   }
-  check("preflight accepts a credential from the environment", passed, true);
+  check("a credential in the environment satisfies the credential check",
+    /headless credential/.test(msg2), false);
 
   delete process.env.ANTHROPIC_API_KEY;
   for (const [k, v] of [["ANTHROPIC_API_KEY", saved.a], ["CLAUDE_CODE_OAUTH_TOKEN", saved.b], ["ANTHROPIC_AUTH_TOKEN", saved.c]]) {
