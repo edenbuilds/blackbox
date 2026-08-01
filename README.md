@@ -132,13 +132,19 @@ blackbox eval
 ```
 
 ```
-arm         scored  passed  rate    void  blocked  cost      wall
-bare             9       7   0.78      0        0    $12.40   842s
-configured       8       8   1.00      1        0    $21.06  1503s
-
-1 cell(s) voided by the leak detector and excluded from the rates above.
-A contaminated cell measured the answer key, not the configuration.
+arm               passed   rate    void  dead  blocked  cost      wall
+bare                 0/3   0.00     0     0        0     $0.26   47s
+with-conventions     3/3   1.00     0     0        0     $0.34   58s
 ```
+
+That is a real run, not an illustration. The task needs a naming convention and a
+sort-order tie-break that exist only in the `CLAUDE.md` the second arm installs, so
+the first arm cannot know them — it wrote a working accessor under the wrong name
+every time. Three reps, sixty cents, nothing void, dead, or blocked.
+
+It is also a deliberately favourable case: the convention is genuinely undiscoverable
+from the repo. That makes it a clean test of the harness, not evidence that agent
+configs help in general — for which you would run *your* tasks, not this one.
 
 An **arm** is just a set of files installed into the worktree, so it works with
 whatever you actually ship to your team:
