@@ -21,6 +21,7 @@ import {
 import * as isolate from "../lib/isolate.mjs";
 import * as leakscan from "../lib/leakscan.mjs";
 import { formatScore, loadSpec, runSuite, score } from "../lib/eval.mjs";
+import * as auditor from "../lib/audit.mjs";
 
 function argValue(args, flag) {
   const i = args.indexOf(flag);
@@ -270,8 +271,9 @@ function selftest() {
   // The ported suites keep their own counts so a failure names the right file.
   const leak = leakscan.selftest();
   const iso = isolate.selftest();
+  const aud = auditor.selftest();
   console.log("");
-  const total = fails + leak + iso;
+  const total = fails + leak + iso + aud;
   console.log(total === 0 ? "blackbox selftest PASSED" : `blackbox selftest FAILED (${fails} here)`);
   return total === 0 ? 0 : 1;
 }
@@ -287,6 +289,7 @@ const HELP = `blackbox — flight recorder and evaluator for coding agents
   eval   [--spec FILE]             Run a paired A/B evaluation of agent configs
          [--task ID] [--arm NAME] [--out FILE]
          --example                 Print a starter spec
+  audit  [DIR] [--json]            Does this repo's agent config enforce anything?
   leakscan LOG WORKTREE            Did a session read outside its worktree?
 
   selftest                         Run the built-in checks
@@ -310,6 +313,13 @@ function main(argv) {
       const { reads, lists } = leakscan.classify(existsSync(log) ? readFileSync(log, "utf8") : "", wt);
       console.log(JSON.stringify({ void: reads.length > 0, reads, lists }, null, 2));
       return reads.length ? 1 : 0;
+    }
+    case "audit": {
+      const root = resolve(args.find((a) => !a.startsWith("--")) || process.cwd());
+      if (!existsSync(root)) { console.error(`blackbox: no such directory: ${root}`); return 1; }
+      const a = auditor.audit(root);
+      console.log(args.includes("--json") ? JSON.stringify(a, null, 2) : auditor.formatAudit(a));
+      return 0;
     }
     case "selftest": return selftest();
     case "path": console.log(EVENTS); return 0;

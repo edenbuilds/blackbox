@@ -145,6 +145,30 @@ check("passing cell has no verify output", results.find((r) => r.passed).verify_
   }
 }
 
+// The spend cap stops the suite between cells. Without this, a suite of N cells runs
+// all N and nothing stops at $X — the one honest gap the audit named in blackbox.
+{
+  const { score } = await import("../lib/eval.mjs");
+  // The stub reports no cost, so drive the accounting directly: a suite whose first
+  // cell already exceeded the cap must skip the rest rather than run them.
+  const s = score([
+    { arm: "bare", ran: true, passed: true, void: false, cost_usd: 5 },
+    { arm: "bare", ran: false, passed: false, void: false, skipped: "cost cap reached: $5.00 of $1" },
+    { arm: "bare", ran: false, passed: false, void: false, skipped: "cost cap reached: $5.00 of $1" },
+  ]);
+  check("skipped cells are counted separately", s.bare.skipped, 2);
+  check("skipped cells are excluded from the rate", [s.bare.scored, s.bare.pass_rate], [1, 1]);
+}
+
+// And end to end: a zero budget must stop the suite before the first cell runs.
+{
+  const capped = loadSpec(join(specDir, "blackbox.eval.json"));
+  capped.maxCostUsd = 0;
+  const out = runSuite({ spec: capped, onLog: () => {} });
+  check("a zero cost cap skips every cell", out.every((r) => Boolean(r.skipped)), true);
+  check("nothing ran under a zero cap", out.some((r) => r.ran), false);
+}
+
 rmSync(root, { recursive: true, force: true });
 console.log(fails ? `\neval e2e FAILED (${fails})` : `\neval e2e PASSED (${total}/${total})`);
 process.exit(fails ? 1 : 0);

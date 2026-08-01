@@ -194,6 +194,38 @@ These aren't hypotheticals. Every one of them exists because a real suite publis
 number it shouldn't have — including one where five of six control runs read the
 answer key out of their own working directory.
 
+## Does your config enforce anything, or only ask?
+
+```bash
+npx @edenbuilds/blackbox audit .
+```
+
+```
+harness    2 of 8 declared controls enforced in code
+           ? turn cap               unclear — in state.sh, verify by hand
+           ✓ cost cap               enforced — stops the run
+           ✗ permission tiers       declared in config/docs only, no code reads it
+           ✗ sandbox                declared in config/docs only, no code reads it
+
+hooks      hooks/hooks.json: SessionStart, PostToolUse, Stop
+           ✓ interception at PostToolUse, Stop
+
+enforcement 225 LOC   doctrine 8184 LOC   ratio 1:36
+```
+
+Most agent setups declare controls that nothing executes. The gap between a control
+being **declared** and a control being **called** is invisible by inspection and trivial
+to compute. Static analysis — nothing runs, nothing is billed, no credentials.
+
+It under-reports on purpose: a control counts as enforced only if it sits within twelve
+lines of something that actually stops execution, and enforcement split across functions
+comes back as `unclear` rather than a guess. A false *not enforced* sends you to look; a
+false *enforced* tells you not to.
+
+We ran it on our own harness first. It found 32 lines of enforcement behind 3,711 lines
+of doctrine, and a turn cap whose only enforcement function had zero callers. See
+[docs/VALUE.md](docs/VALUE.md).
+
 ## Install
 
 ```bash
