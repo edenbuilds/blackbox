@@ -161,11 +161,19 @@ function cmdEval(args) {
     `on ${spec.executor}/${spec.model}\n`,
   );
 
-  const results = runSuite({
-    spec,
-    filter: { task: argValue(args, "--task"), arm: argValue(args, "--arm") },
-    onLog: (m) => console.log("  " + m),
-  });
+  let results;
+  try {
+    results = runSuite({
+      spec,
+      filter: { task: argValue(args, "--task"), arm: argValue(args, "--arm") },
+      onLog: (m) => console.log("  " + m),
+    });
+  } catch (e) {
+    // A preflight refusal is a message for a human, not a stack trace. It already
+    // says what to fix and that nothing was billed.
+    console.error(`blackbox: ${e.message}`);
+    return 1;
+  }
 
   writeFileSync(out, JSON.stringify({ spec: { ...spec, dir: undefined }, results }, null, 2));
   console.log(`\n${formatScore(score(results))}\n`);

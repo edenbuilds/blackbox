@@ -97,6 +97,54 @@ check("passing cell has no verify output", results.find((r) => r.passed).verify_
     readdirSync(join(loaded.runsDir, "w")).filter((n) => !n.includes(".")).length, 0);
 }
 
+// A cell whose executor errored before doing any work is dead, not failed — and a
+// dead cell must not be averaged into a pass rate. This is the exact shape of the
+// first real run: the CLI exited 0 while reporting "Not logged in" in its output, so
+// the exit status alone called it a legitimate failure of the configuration.
+{
+  const { score } = await import("../lib/eval.mjs");
+  const s = score([
+    { arm: "bare", ran: false, passed: false, void: false, error: "Not logged in" },
+    { arm: "bare", ran: true, passed: true, void: false },
+  ]);
+  check("a dead cell is counted separately", s.bare.dead, 1);
+  check("a dead cell is excluded from the rate", [s.bare.scored, s.bare.pass_rate], [1, 1]);
+}
+
+// The preflight refuses rather than billing cells that cannot produce a number.
+{
+  const { preflight } = await import("../lib/eval.mjs");
+  const saved = {
+    a: process.env.ANTHROPIC_API_KEY,
+    b: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+    c: process.env.ANTHROPIC_AUTH_TOKEN,
+  };
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  delete process.env.ANTHROPIC_AUTH_TOKEN;
+  let refused = false;
+  try {
+    preflight({ executor: "claude" });
+  } catch (e) {
+    refused = /headless credential/.test(e.message);
+  }
+  check("preflight refuses a claude run with no headless credential", refused, true);
+
+  process.env.ANTHROPIC_API_KEY = "sk-test-not-a-real-key";
+  let passed = true;
+  try {
+    preflight({ executor: "claude" });
+  } catch (e) {
+    passed = !/headless credential/.test(e.message); // CLI-missing is a different refusal
+  }
+  check("preflight accepts a credential from the environment", passed, true);
+
+  delete process.env.ANTHROPIC_API_KEY;
+  for (const [k, v] of [["ANTHROPIC_API_KEY", saved.a], ["CLAUDE_CODE_OAUTH_TOKEN", saved.b], ["ANTHROPIC_AUTH_TOKEN", saved.c]]) {
+    if (v !== undefined) process.env[k] = v;
+  }
+}
+
 rmSync(root, { recursive: true, force: true });
 console.log(fails ? `\neval e2e FAILED (${fails})` : `\neval e2e PASSED (${total}/${total})`);
 process.exit(fails ? 1 : 0);
