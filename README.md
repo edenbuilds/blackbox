@@ -300,6 +300,12 @@ the raw transcripts exactly. `blackbox selftest` covers the pricing math, longes
 model matching, the null-vs-zero cost rule, torn-line tolerance, reducer output shape,
 file capture from tool-call inputs, and ingest idempotency.
 
+The evaluator has been run end to end against a live model — isolation, arm install,
+execution, verify, leak scan, and cost metering from the cell's own transcript, with
+zero cells void, dead, or blocked. That validates the pipeline. It is **not** a claim
+that agent configs help: a single rep of a single task is a smoke test, and this repo
+would rather ship no number than a number it cannot stand behind.
+
 **Not here yet**, deliberately:
 
 - No SQLite index — the log is read in full, which is fine at 14 MB. When it isn't, that

@@ -2,7 +2,7 @@
   "runsDir": "/tmp/blackbox-eval",
   "executor": "claude",
   "model": "claude-sonnet-5",
-  "reps": 1,
+  "reps": 3,
   "arms": {
     "bare": {
       "install": []
